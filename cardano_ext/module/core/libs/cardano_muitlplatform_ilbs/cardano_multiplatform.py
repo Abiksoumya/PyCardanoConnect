@@ -781,6 +781,123 @@ class EnterpriseAddress:
         _assertClass(addr, Address)
         ret = wasm.address_as_enterprise(addr.ptr)
         return EnterpriseAddress(ret)
+    
+
+
+
+# Rewarded Address
+class RewardAddressesFinalization:
+    def __init__(self, cleanup_fn):
+        self.cleanup_fn = cleanup_fn
+        self.refs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr):
+        self.refs[ptr] = obj
+
+    def unregister(self, ptr):
+        if ptr in self.refs:
+            del self.refs[ptr]
+
+    def cleanup(self):
+        for ptr in self.refs.keys():
+            self.cleanup_fn(ptr)
+
+
+
+class RewardAddresses:
+    def __init__(self, ptr):
+        self.ptr = ptr
+        RewardAddressesFinalization.register(self, self.ptr, self)
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        RewardAddressesFinalization.unregister(self)
+        return ptr
+    
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_rewardaddresses_free(ptr)
+
+
+    def to_bytes(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.rewardaddresses_to_bytes(retptr, self.ptr)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            v0 = getArrayU8FromWasm0(r0, r1).copy()
+            wasm.__wbindgen_free(r0, r1 * 1)
+            return v0
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+    
+    @staticmethod
+    def from_bytes(bytes):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc)
+            len0 = WASM_VECTOR_LEN
+            wasm.rewardaddresses_from_bytes(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            r2 = get_int32_memory0()[int(retptr / 4 + 2)]
+            if r2:
+                raise take_object(r1)
+            return RewardAddresses.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def from_bytes(bytes):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc)
+            len0 = WASM_VECTOR_LEN
+            wasm.rewardaddresses_from_bytes(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            r2 = get_int32_memory0()[int(retptr / 4 + 2)]
+            if r2:
+                raise take_object(r1)
+            return RewardAddresses.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+
+    def to_json(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.rewardaddresses_to_json(retptr, self.ptr)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            r2 = get_int32_memory0()[int(retptr / 4 + 2)]
+            r3 = get_int32_memory0()[int(retptr / 4 + 3)]
+            ptr0 = r0
+            len0 = r1
+            if r3:
+                ptr0 = 0
+                len0 = 0
+                raise take_object(r2)
+            return get_string_from_wasm0(ptr0, len0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+            wasm.__wbindgen_free(ptr0, len0)
+
+    def to_js_value(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.rewardaddresses_to_js_value(retptr, self.ptr)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            r2 = get_int32_memory0()[int(retptr / 4 + 2)]
+            if r2:
+                raise take_object(r1)
+            return take_object(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+
 
 
 

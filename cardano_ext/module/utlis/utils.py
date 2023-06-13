@@ -30,6 +30,57 @@ class Utils:
                 self.lucid.network,  # Replace with appropriate network ID
                 C.StakeCredential.from_scripthash(C.ScriptHash.from_hex(validator_hash)),
             ).to_address().to_bech32(None)
+        
+    def credential_to_address(self, paymentCredential, stakeCredential: Optional[str] = None):
+        if stakeCredential:
+            return C.BaseAddress.new(
+                self.lucid.network, # Replace with appropriate network ID
+                C.StakeCredential.from_keyhash(
+                C.Ed25519KeyHash.from_hex(paymentCredential.hash)
+                )
+                if paymentCredential.type == "Key"
+                else C.StakeCredential.from_scripthash(
+                    C.ScriptHash.from_hex(paymentCredential.hash)
+                ),
+                C.StakeCredential.from_keyhash(
+                C.Ed25519KeyHash.from_hex(stakeCredential.hash)
+                )
+                if stakeCredential.type == "Key"
+                else C.StakeCredential.from_scripthash(
+                C.ScriptHash.from_hex(stakeCredential.hash)
+                ),
+            ).to_address().to_bech32(None)
+        else:
+            return C.EnterpriseAddress.new(
+                self.lucid.network,  # Replace with appropriate network ID
+                C.StakeCredential.from_keyhash(
+                    C.Ed25519KeyHash.from_hex(paymentCredential.hash)
+                )
+                if paymentCredential.type == "Key"
+                else C.StakeCredential.from_scripthash(
+                    C.ScriptHash.from_hex(paymentCredential.hash)
+                ),
+            ).to_address().to_bech32(None)
+        
+    
+    def validatorToRewardAddress(self, validator):
+        validatorHash = self.validatorToScriptHash(validator)
+        return C.RewardAddresses.new(
+            self.lucid.network,  # Replace with appropriate network ID
+            C.StakeCredential.from_scripthash(C.ScriptHash.from_hex(validatorHash)),
+        ).to_address().to_bech32(None)
+    
+    def credentialToRewardAddress(self, stakeCredential):
+        return C.RewardAddresses.new(
+            self.lucid.network,  # Replace with appropriate network ID
+            C.StakeCredential.from_keyhash(
+                C.Ed25519KeyHash.from_hex(stakeCredential.hash)
+            )
+            if stakeCredential.type == "Key"
+            else C.StakeCredential.from_scripthash(
+                C.ScriptHash.from_hex(stakeCredential.hash)
+            ),
+        ).to_address().to_bech32(None)
                                      
                                      
 
