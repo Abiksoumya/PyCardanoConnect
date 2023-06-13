@@ -802,6 +802,8 @@ class RewardAddressesFinalization:
         for ptr in self.refs.keys():
             self.cleanup_fn(ptr)
 
+    
+
 
 
 class RewardAddresses:
@@ -818,6 +820,11 @@ class RewardAddresses:
     def free(self):
         ptr = self.__destroy_into_raw()
         wasm.__wbg_rewardaddresses_free(ptr)
+
+    @staticmethod
+    def __wrap(ptr):
+        obj = RewardAddresses(ptr)
+        return obj
 
 
     def to_bytes(self):
