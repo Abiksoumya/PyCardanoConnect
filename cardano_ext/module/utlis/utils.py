@@ -6,6 +6,8 @@ import binascii
 
 
 
+
+
 class Utils:
     def __init__(self,lucid):
         self.lucid = lucid
@@ -81,6 +83,24 @@ class Utils:
                 C.ScriptHash.from_hex(stakeCredential.hash)
             ),
         ).to_address().to_bech32(None)
+    
+    
+    
+    def validatorToScriptHash(self, validator):
+        if validator["type"] == "Native":
+            return C.NativeScript.from_bytes(fromHex(validator["script"])).hash(
+                C.ScriptHashNamespace.NativeScript
+            ).toHex()
+        elif validator["type"] == "PlutusV1":
+            return C.PlutusScript.from_bytes(
+                fromHex(apply_double_cbor_encoding(validator["script"]))
+            ).hash(C.ScriptHashNamespace.PlutusV1).toHex()
+        elif validator["type"] == "PlutusV2":
+            return C.PlutusScript.from_bytes(
+                fromHex(apply_double_cbor_encoding(validator["script"]))
+            ).hash(C.ScriptHashNamespace.PlutusV2).toHex()
+        else:
+            raise Exception("No variant matched")
                                      
                                      
 
@@ -105,6 +125,16 @@ def addressFromHexOrBech32(address: str) -> C.Address:
             return C.Address.from_bech32(address)
         except:
             raise Exception("Could not deserialize address.")
+        
+def apply_double_cbor_encoding(script):
+    try:
+        cbor_script = C.PlutusScript.from_bytes(
+            C.PlutusScript.from_bytes(fromHex(script)).bytes()
+        )
+        return script
+    except Exception:
+        return toHex(C.PlutusScript.new(toHex(script)).to_bytes())
+
 
 
 
@@ -126,6 +156,7 @@ class Address_details:
         self.stakeCredential = stakeCredential
 
 def getAddressDetails(address: str) -> Optional[Address_details]:
+    # BaseAddress
     try:
         parsedAddress = C.BaseAddress.from_address(addressFromHexOrBech32(address))
         payment_cred_kind = parsedAddress.payment_cred().kind()
@@ -144,5 +175,115 @@ def getAddressDetails(address: str) -> Optional[Address_details]:
         )
     except:
         pass
+
+# EnterpriseAddress 
+    try:
+        parsedAddress = C.EnterpriseAddress.from_address(addressFromHexOrBech32(address))
+        
+        payment_cred = parsedAddress.payment_cred()
+        paymentCredential = None
+        if payment_cred.kind() == 0:
+            paymentCredential = Credential(
+                credential_type="Key",
+                hash=toHex(payment_cred.to_keyhash().to_bytes())
+            )
+        else:
+            paymentCredential = Credential(
+                credential_type="Script",
+                hash=toHex(payment_cred.to_scripthash().to_bytes())
+            )
+        
+        return {
+            "type": "Enterprise",
+            "networkId": parsedAddress.to_address().network_id(),
+            "address": {
+                "bech32": parsedAddress.to_address().to_bech32(None),
+                "hex": toHex(parsedAddress.to_address().to_bytes())
+            },
+            "paymentCredential": paymentCredential
+        }
+    
+    except Exception as _e:
+        pass
+
+# PointerAddress 
+    try:
+        parsed_address = C.PointerAddress.from_address(addressFromHexOrBech32(address))
+        payment_cred = parsed_address.payment_cred()
+        if payment_cred.kind() == 0:
+            payment_credential = {
+                "type": "Key",
+                "hash": toHex(payment_cred.to_keyhash().to_bytes())
+            }
+        else:
+            payment_credential = {
+                "type": "Script",
+                "hash": toHex(payment_cred.to_scripthash().to_bytes())
+            }
+        return {
+            "type": "Pointer",
+            "networkId": parsed_address.to_address().network_id(),
+            "address": {
+                "bech32": parsed_address.to_address().to_bech32(),
+                "hex": toHex(parsed_address.to_address().to_bytes())
+            },
+            "paymentCredential": payment_credential
+        }
+    except:
+        pass
+
+
+    #  Reward Address 
+    try:
+        parsed_address = C.RewardAddress.from_address(addressFromHexOrBech32(address))
+        payment_cred = parsed_address.payment_cred()
+        if payment_cred.kind() == 0:
+            stake_credential = {
+                "type": "Key",
+                "hash": toHex(payment_cred.to_keyhash().to_bytes())
+            }
+        else:
+            stake_credential = {
+                "type": "Script",
+                "hash": toHex(payment_cred.to_scripthash().to_bytes())
+            }
+        return {
+            "type": "Reward",
+            "networkId": parsed_address.to_address().network_id(),
+            "address": {
+                "bech32": parsed_address.to_address().to_bech32(),
+                "hex": toHex(parsed_address.to_address().to_bytes())
+            },
+            "stakeCredential": stake_credential
+        }
+    except:
+        pass
+
+    #  Limited support for Byron Address
+
+    try:
+        def parsed_address(address):
+            try:
+                return C.ByronAddress.from_bytes(fromHex(address))
+            except Exception as _e:
+                try:
+                    return C.ByronAddress.from_base58(address)
+                except Exception as Error:
+                    raise Error("Could not deserialize address.")
+
+        parsedAddress = parsed_address(address)
+
+        return {
+            "type": "Byron",
+            "networkId": parsedAddress.network_id(),
+            "address": {
+                "bech32": "",
+                "hex": toHex(parsedAddress.to_address().to_bytes()),
+            },
+        }
+    except Exception as Error:
+        pass
+
+    raise Error("No address type matched for: " + address)
 
 

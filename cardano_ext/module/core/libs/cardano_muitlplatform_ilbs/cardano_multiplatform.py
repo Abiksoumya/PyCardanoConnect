@@ -293,7 +293,7 @@ class Address:
             r2 = memory.data_view()[(result_ptr // 4) + 2]
 
             if r2:
-                raise Exception(take_object(r1))  # Replace takeObject with the appropriate logic
+                raise Exception(take_object(r1))  # Replace take_object with the appropriate logic
 
             return Address.wrap(r0)  # Replace Address.__wrap with the appropriate wrapping logic
         finally:
@@ -782,10 +782,64 @@ class EnterpriseAddress:
         ret = wasm.address_as_enterprise(addr.ptr)
         return EnterpriseAddress(ret)
     
+# Reward Address 
+class RewardAddressFinalization:
+    def __init__(self, cleanup_fn):
+        self.cleanup_fn = cleanup_fn
+        self.refs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr):
+        self.refs[ptr] = obj
+
+    def unregister(self, ptr):
+        if ptr in self.refs:
+            del self.refs[ptr]
+
+    def cleanup(self):
+        for ptr in self.refs.keys():
+            self.cleanup_fn(ptr)
+
+
+class RewardAddress:
+    def __init__(self, ptr):
+        self.ptr = ptr
+        RewardAddressFinalization.register(self, self.ptr, self)
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        RewardAddressFinalization.unregister(self)
+        return ptr
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_rewardaddress_free(ptr)
+
+    @staticmethod
+    def new(network, payment):
+        _assertClass(payment, StakeCredential)
+        ret = wasm.enterpriseaddress_new(network, payment.ptr)
+        return RewardAddress.__wrap(ret)
+
+    def payment_cred(self):
+        ret = wasm.baseaddress_payment_cred(self.ptr)
+        return StakeCredential.__wrap(ret)
+
+    def to_address(self):
+        ret = wasm.rewardaddress_to_address(self.ptr)
+        return Address.__wrap(ret)
+
+    @staticmethod
+    def from_address(addr):
+        _assertClass(addr, Address)
+        ret = wasm.address_as_reward(addr.ptr)
+        return None if ret == 0 else RewardAddress.__wrap(ret)
+
+    
 
 
 
-# Rewarded Address
+# Rewarded Addresses
 class RewardAddressesFinalization:
     def __init__(self, cleanup_fn):
         self.cleanup_fn = cleanup_fn
@@ -905,6 +959,1330 @@ class RewardAddresses:
             wasm.__wbindgen_add_to_stack_pointer(16)
 
 
+class LanguagesFinalization:
+    def __init__(self, callback):
+        self.callback = callback
+        self.weakrefs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr, key):
+        self.weakrefs[key] = (obj, ptr)
+
+    def unregister(self, key):
+        del self.weakrefs[key]
+
+    def cleanup(self):
+        for obj, ptr in self.weakrefs.values():
+            self.callback(ptr)
+
+class Languages:
+    def __init__(self, ptr):
+        self.ptr = ptr
+        LanguagesFinalization.register(self, self.ptr, self)
+
+    @staticmethod
+    def __wrap(ptr):
+        obj = Languages(ptr)
+        return obj
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        LanguagesFinalization.unregister(self)
+        return ptr
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_languages_free(ptr)
+
+    @staticmethod
+    def new():
+        ret = wasm.ed25519keyhashes_new()
+        return Languages.__wrap(ret)
+
+    def len(self):
+        ret = wasm.assetnames_len(self.ptr)
+        return ret
+
+    def get(self, index):
+        ret = wasm.languages_get(self.ptr, index)
+        return Language.__wrap(ret)
+
+    def add(self, elem):
+        _assertClass(elem, Language)
+        ptr0 = elem.__destroy_into_raw()
+        wasm.languages_add(self.ptr, ptr0)
+
+
+# Language
+class LanguageFinalization:
+    def __init__(self, callback):
+        self.callback = callback
+        self.weakrefs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr, key):
+        self.weakrefs[key] = (obj, ptr)
+
+    def unregister(self, key):
+        del self.weakrefs[key]
+
+    def cleanup(self):
+        for obj, ptr in self.weakrefs.values():
+            self.callback(ptr)
+
+class Language:
+    def __init__(self, ptr):
+        self.ptr = ptr
+        LanguageFinalization.register(self, self.ptr, self)
+
+    @staticmethod
+    def __wrap(ptr):
+        obj = Language(ptr)
+        return obj
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        LanguageFinalization.unregister(self)
+        return ptr
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_language_free(ptr)
+
+    def to_bytes(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.language_to_bytes(retptr, self.ptr)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            v0 = getArrayU8FromWasm0(r0, r1)[:]
+
+            wasm.__wbindgen_free(r0, r1 * 1)
+            return v0
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def from_bytes(bytes):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc)
+            len0 = WASM_VECTOR_LEN
+            wasm.language_from_bytes(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            r2 = get_int32_memory0()[int(retptr / 4 + 2)]
+
+            if r2:
+                raise take_object(r1)
+            return Language.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def new_plutus_v1():
+        ret = wasm.language_new_plutus_v1()
+        return Language.__wrap(ret)
+
+    @staticmethod
+    def new_plutus_v2():
+        ret = wasm.language_new_plutus_v2()
+        return Language.__wrap(ret)
+
+    def kind(self):
+        ret = wasm.language_kind(self.ptr)
+        return ret
+    
+# int 
+    
+class IntFinalization:
+    def __init__(self, callback):
+        self.callback = callback
+        self.weakrefs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr, key):
+        self.weakrefs[key] = (obj, ptr)
+
+    def unregister(self, key):
+        del self.weakrefs[key]
+
+    def cleanup(self):
+        for obj, ptr in self.weakrefs.values():
+            self.callback(ptr)
+
+class Int:
+    def __init__(self, ptr):
+        self.ptr = ptr
+
+    def __del__(self):
+        self.free()
+
+    def __wrap(cls, ptr):
+        obj = cls(ptr)
+        IntFinalization.register(obj, obj.ptr, obj)
+        return obj
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        IntFinalization.unregister(self)
+        return ptr
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_int_free(ptr)
+
+    def to_bytes(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.int_to_bytes(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr / 4 + 0]
+            r1 = get_int32_memory0()[retptr / 4 + 1]
+            v0 = getArrayU8FromWasm0(r0, r1).slice()
+            wasm.__wbindgen_free(r0, r1 * 1)
+            return v0
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def from_bytes(bytes):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc)
+            len0 = WASM_VECTOR_LEN
+            wasm.int_from_bytes(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[retptr / 4 + 0]
+            r1 = get_int32_memory0()[retptr / 4 + 1]
+            r2 = get_int32_memory0()[retptr / 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return Int.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def new(x):
+        _assertClass(x, BigNum)
+        ret = wasm.int_new(x.ptr)
+        return Int.__wrap(ret)
+
+    @staticmethod
+    def new_negative(x):
+        _assertClass(x, BigNum)
+        ret = wasm.int_new_negative(x.ptr)
+        return Int.__wrap(ret)
+    
+    @staticmethod
+    def new_i32(x):
+        ret = wasm.int_new_i32(x)
+        return Int.__wrap(ret)
+
+    def is_positive(self):
+        ret = wasm.int_is_positive(self.ptr)
+        return ret != 0
+
+    def as_positive(self):
+        ret = wasm.int_as_positive(self.ptr)
+        return BigNum.__wrap(ret) if ret != 0 else None
+
+    def as_negative(self):
+        ret = wasm.int_as_negative(self.ptr)
+        return BigNum.__wrap(ret) if ret != 0 else None
+
+    def as_i32(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.int_as_i32(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr / 4 + 0]
+            r1 = get_int32_memory0()[retptr / 4 + 1]
+            return r1 if r0 != 0 else None
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+
+    def as_i32_or_nothing(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.int_as_i32(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr / 4 + 0]
+            r1 = get_int32_memory0()[retptr / 4 + 1]
+            return r1 if r0 != 0 else None
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    def as_i32_or_fail(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.int_as_i32_or_fail(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr / 4 + 0]
+            r1 = get_int32_memory0()[retptr / 4 + 1]
+            r2 = get_int32_memory0()[retptr / 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return r0
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    def to_str(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.int_to_str(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr / 4 + 0]
+            r1 = get_int32_memory0()[retptr / 4 + 1]
+            return get_string_from_wasm0(r0, r1)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+            wasm.__wbindgen_free(r0, r1)
+
+    @staticmethod
+    def from_str(string):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = pass_string_to_wasm0(
+                string,
+                wasm.__wbindgen_malloc,
+                wasm.__wbindgen_realloc,
+            )
+            len0 = WASM_VECTOR_LEN
+            wasm.int_from_str(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[retptr / 4 + 0]
+            r1 = get_int32_memory0()[retptr / 4 + 1]
+            r2 = get_int32_memory0()[retptr / 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return Int.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+
+    
+
+# cost model
+class CostModelFinalization:
+    def __init__(self, callback):
+        self.callback = callback
+        self.weakrefs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr, key):
+        self.weakrefs[key] = (obj, ptr)
+
+    def unregister(self, key):
+        del self.weakrefs[key]
+
+    def cleanup(self):
+        for obj, ptr in self.weakrefs.values():
+            self.callback(ptr)
+
+class CostModel:
+    def __init__(self, ptr):
+        self.ptr = ptr
+        CostModelFinalization.register(self, self.ptr, self)
+
+    @staticmethod
+    def __wrap(ptr):
+        obj = CostModel(ptr)
+        return obj
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        CostModelFinalization.unregister(self)
+        return ptr
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_costmodel_free(ptr)
+
+    def to_bytes(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.costmodel_to_bytes(retptr, self.ptr)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            v0 = getArrayU8FromWasm0(r0, r1)[:]
+
+            wasm.__wbindgen_free(r0, r1 * 1)
+            return v0
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def from_bytes(bytes):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc)
+            len0 = WASM_VECTOR_LEN
+            wasm.costmodel_from_bytes(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            r2 = get_int32_memory0()[int(retptr / 4 + 2)]
+
+            if r2:
+                raise take_object(r1)
+            return CostModel.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def new():
+        ret = wasm.costmodel_new()
+        return CostModel.__wrap(ret)
+    
+
+    @staticmethod
+    def new_plutus_v2():
+        ret = wasm.costmodel_new_plutus_v2()
+        return CostModel.__wrap(ret)
+
+    def set(self, operation, cost):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            _assertClass(cost, Int)
+            wasm.costmodel_set(retptr, self.ptr, operation, cost.ptr)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            r2 = get_int32_memory0()[int(retptr / 4 + 2)]
+            if r2:
+                raise take_object(r1)
+            return Int.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    def get(self, operation):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.costmodel_get(retptr, self.ptr, operation)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            r2 = get_int32_memory0()[int(retptr / 4 + 2)]
+            if r2:
+                raise take_object(r1)
+            return Int.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    def len(self):
+        ret = wasm.assetnames_len(self.ptr)
+        return ret 
+
+
+
+# Costmdls
+class CostmdlsFinalization:
+    def __init__(self, callback):
+        self.callback = callback
+        self.weakrefs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr, key):
+        self.weakrefs[key] = (obj, ptr)
+
+    def unregister(self, key):
+        del self.weakrefs[key]
+
+    def cleanup(self):
+        for obj, ptr in self.weakrefs.values():
+            self.callback(ptr)
+
+class Costmdls:
+    def __init__(self, ptr):
+        self.ptr = ptr
+        CostmdlsFinalization.register(self, self.ptr, self)
+
+    @staticmethod
+    def __wrap(ptr):
+        obj = Costmdls(ptr)
+        return obj
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        CostmdlsFinalization.unregister(self)
+        return ptr
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_costmdls_free(ptr)
+
+    def to_bytes(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.costmdls_to_bytes(retptr, self.ptr)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            v0 = getArrayU8FromWasm0(r0, r1)[:]
+
+            wasm.__wbindgen_free(r0, r1 * 1)
+            return v0
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def from_bytes(bytes):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc)
+            len0 = WASM_VECTOR_LEN
+            wasm.costmdls_from_bytes(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            r2 = get_int32_memory0()[int(retptr / 4 + 2)]
+
+            if r2:
+                raise take_object(r1)
+            return Costmdls.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def new():
+        ret = wasm.assets_new()
+        return Costmdls.__wrap(ret)
+    
+
+    def __len__(self):
+        ret = wasm.assetnames_len(self.ptr)
+        return ret
+
+    def insert(self, key, value):
+        _assertClass(key, Language)
+        _assertClass(value, CostModel)
+        ret = wasm.costmdls_insert(self.ptr, key.ptr, value.ptr)
+        return None if ret == 0 else CostModel.__wrap(ret)
+
+    def get(self, key):
+        _assertClass(key, Language)
+        ret = wasm.costmdls_get(self.ptr, key.ptr)
+        return None if ret == 0 else CostModel.__wrap(ret)
+
+    def keys(self):
+        ret = wasm.costmdls_keys(self.ptr)
+        return Languages.__wrap(ret)
+
+
+
+
+# TransactionBuilderConfigFinalization
+
+class TransactionBuilderConfigFinalization:
+    def __init__(self, callback):
+        self.callback = callback
+        self.weakrefs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr, key):
+        self.weakrefs[key] = (obj, ptr)
+
+    def unregister(self, key):
+        del self.weakrefs[key]
+
+    def cleanup(self):
+        for obj, ptr in self.weakrefs.values():
+            self.callback(ptr)
+
+class TransactionBuilderConfig:
+    @staticmethod
+    def __wrap(ptr):
+        obj = TransactionBuilderConfig()
+        obj.ptr = ptr
+        TransactionBuilderConfigFinalization.register(obj, obj.ptr, obj)
+        return obj
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        TransactionBuilderConfigFinalization.unregister(self)
+        return ptr
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_transactionbuilderconfig_free(ptr)
+
+
+#  Ed25519Signature 
+class Ed25519KeyHashesFinalization:
+    def __init__(self, callback):
+        self.callback = callback
+        self.weakrefs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr, key):
+        self.weakrefs[key] = (obj, ptr)
+
+    def unregister(self, key):
+        del self.weakrefs[key]
+
+    def cleanup(self):
+        for obj, ptr in self.weakrefs.values():
+            self.callback(ptr)
+
+
+
+class Ed25519KeyHashes:
+    def __init__(self, ptr):
+        self.ptr = ptr
+        Ed25519KeyHashesFinalization.register(self, self.ptr, self)
+
+    @staticmethod
+    def __wrap(ptr):
+        return Ed25519KeyHashes(ptr)
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        Ed25519KeyHashesFinalization.unregister(self)
+        return ptr
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_ed25519keyhashes_free(ptr)
+
+    def to_bytes(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.ed25519keyhashes_to_bytes(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            v0 = getArrayU8FromWasm0(r0, r1)[:]
+            wasm.__wbindgen_free(r0, r1 * 1)
+            return v0
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def from_bytes(bytes):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc)
+            len0 = WASM_VECTOR_LEN
+            wasm.ed25519keyhashes_from_bytes(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return Ed25519KeyHashes.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    def to_json(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.ed25519keyhashes_to_json(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            r3 = get_int32_memory0()[retptr // 4 + 3]
+            ptr0 = r0
+            len0 = r1
+            if r3:
+                ptr0 = 0
+                len0 = 0
+                raise take_object(r2)
+            return get_string_from_wasm0(ptr0, len0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+            wasm.__wbindgen_free(ptr0, len0)
+
+
+    def to_js_value(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.ed25519keyhashes_to_js_value(retptr, self.ptr)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            r2 = get_int32_memory0()[int(retptr / 4 + 2)]
+            if r2:
+                raise take_object(r1)
+            return take_object(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def from_json(json):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = pass_string_to_wasm0(
+                json,
+                wasm.__wbindgen_malloc,
+                wasm.__wbindgen_realloc,
+            )
+            len0 = WASM_VECTOR_LEN
+            wasm.ed25519keyhashes_from_json(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            r2 = get_int32_memory0()[int(retptr / 4 + 2)]
+            if r2:
+                raise take_object(r1)
+            return Ed25519KeyHashes.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def new():
+        ret = wasm.ed25519keyhashes_new()
+        return Ed25519KeyHashes.__wrap(ret)
+
+    def len(self):
+        ret = wasm.assetnames_len(self.ptr)
+        return ret 
+
+    def get(self, index):
+        ret = wasm.ed25519keyhashes_get(self.ptr, index)
+        return Ed25519KeyHash.__wrap(ret)
+
+    def add(self, elem):
+        _assertClass(elem, Ed25519KeyHash)
+        wasm.ed25519keyhashes_add(self.ptr, elem.ptr)
+
+
+# Public Key
+
+class PublicKeyFinalization:
+    def __init__(self, callback):
+        self.callback = callback
+        self.weakrefs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr, key):
+        self.weakrefs[key] = (obj, ptr)
+
+    def unregister(self, key):
+        del self.weakrefs[key]
+
+    def cleanup(self):
+        for obj, ptr in self.weakrefs.values():
+            self.callback(ptr)
+
+class PublicKey:
+    def __init__(self, ptr):
+        self.ptr = ptr
+        PublicKeyFinalization.register(self, self.ptr, self)
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        PublicKeyFinalization.unregister(self)
+        return ptr
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_publickey_free(ptr)
+
+    @staticmethod
+    def from_bech32(bech32_str):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = pass_string_to_wasm0(
+                bech32_str,
+                wasm.__wbindgen_malloc,
+                wasm.__wbindgen_realloc,
+            )
+            len0 = WASM_VECTOR_LEN
+            wasm.publickey_from_bech32(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return PublicKey.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    def to_bech32(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.publickey_to_bech32(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            return get_string_from_wasm0(r0, r1)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+            wasm.__wbindgen_free(r0, r1)
+
+    def as_bytes(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.auxiliarydatahash_to_bytes(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            v0 = getArrayU8FromWasm0(r0, r1)[:]
+
+            wasm.__wbindgen_free(r0, r1 * 1)
+            return v0
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+
+    @staticmethod
+    def from_bytes(bytes):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc)
+            len0 = WASM_VECTOR_LEN
+            wasm.publickey_from_bytes(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+
+            if r2:
+                raise take_object(r1)
+
+            return PublicKey.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+
+    def verify(self, data, signature):
+        ptr0 = passArray8ToWasm0(data, wasm.__wbindgen_malloc)
+        len0 = WASM_VECTOR_LEN
+        _assertClass(signature, Ed25519KeyHashes)
+        ret = wasm.publickey_verify(self.ptr, ptr0, len0, signature.ptr)
+        return ret != 0
+
+
+    def hash(self):
+        ret = wasm.publickey_hash(self.ptr)
+        return Ed25519KeyHash.__wrap(ret)
+
+
+
+# Bip32
+
+class Bip32PublicKeyFinalization:
+    def __init__(self, callback):
+        self.callback = callback
+        self.registry = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr):
+        self.registry[ptr] = obj
+
+    def unregister(self, obj):
+        for key in list(self.registry.keys()):
+            if self.registry[key] is obj:
+                del self.registry[key]
+                break
+
+    def __call__(self):
+        for ptr in self.registry.keys():
+            self.callback(ptr)
+
+class Bip32PublicKey:
+    def __init__(self, ptr):
+        self.ptr = ptr
+        Bip32PublicKeyFinalization.register(self, self.ptr, self)
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        Bip32PublicKeyFinalization.unregister(self)
+        return ptr
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_bip32publickey_free(ptr)
+
+    def derive(self, index):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.bip32publickey_derive(retptr, self.ptr, index)
+            r0 = get_int32_memory0()[retptr / 4 + 0]
+            r1 = get_int32_memory0()[retptr / 4 + 1]
+            r2 = get_int32_memory0()[retptr / 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return Bip32PublicKey.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    def to_raw_key(self):
+        ret = wasm.bip32publickey_to_raw_key(self.ptr)
+        return PublicKey.__wrap(ret)
+
+    @staticmethod
+    def from_bytes(bytes):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc)
+            len0 = WASM_VECTOR_LEN
+            wasm.bip32publickey_from_bytes(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[retptr / 4 + 0]
+            r1 = get_int32_memory0()[retptr / 4 + 1]
+            r2 = get_int32_memory0()[retptr / 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return Bip32PublicKey.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+
+    def as_bytes(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.bip32publickey_as_bytes(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr / 4 + 0]
+            r1 = get_int32_memory0()[retptr / 4 + 1]
+            v0 = getArrayU8FromWasm0(r0, r1).slice()
+            wasm.__wbindgen_free(r0, r1 * 1)
+            return v0
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def from_bech32(bech32_str):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = passArray8ToWasm0(
+                bech32_str,
+                wasm.__wbindgen_malloc,
+                wasm.__wbindgen_realloc,
+            )
+            len0 = WASM_VECTOR_LEN
+            wasm.bip32publickey_from_bech32(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[retptr / 4 + 0]
+            r1 = get_int32_memory0()[retptr / 4 + 1]
+            r2 = get_int32_memory0()[retptr / 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return Bip32PublicKey.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    def to_bech32(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.bip32publickey_to_bech32(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr / 4 + 0]
+            r1 = get_int32_memory0()[retptr / 4 + 1]
+            return get_string_from_wasm0(r0, r1)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+            wasm.__wbindgen_free(r0, r1)
+
+    def chaincode(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.bip32publickey_chaincode(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr / 4 + 0]
+            r1 = get_int32_memory0()[retptr / 4 + 1]
+            v0 = getArrayU8FromWasm0(r0, r1).slice()
+            wasm.__wbindgen_free(r0, r1 * 1)
+            return v0
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+
+
+
+
+
+class FinalizationRegistry:
+    def __init__(self, cleanup_func):
+        self.cleanup_func = cleanup_func
+        self._objects = weakref.WeakSet()
+
+    def register(self, obj, *args):
+        self._objects.add(obj)
+
+    def unregister(self, obj):
+        self._objects.remove(obj)
+
+    def cleanup(self):
+        for obj in self._objects:
+            self.cleanup_func(obj)
+
+# Create an instance of the FinalizationRegistry
+ByronAddressFinalization = FinalizationRegistry(lambda ptr: wasm.__wbg_byronaddress_free(ptr))
+
+
+class ByronAddress:
+    def __init__(self, ptr):
+        self.ptr = ptr
+        ByronAddressFinalization.register(self, self.ptr, self)
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        ByronAddressFinalization.unregister(self)
+        return ptr
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_byronaddress_free(ptr)
+
+    def to_base58(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.byronaddress_to_base58(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            return get_string_from_wasm0(r0, r1)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+            wasm.__wbindgen_free(r0, r1)
+
+    def to_bytes(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.byronaddress_to_bytes(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            v0 = getArrayU8FromWasm0(r0, r1).copy()
+            wasm.__wbindgen_free(r0, r1 * 1)
+            return v0
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def from_bytes(bytes):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc)
+            len0 = WASM_VECTOR_LEN
+            wasm.byronaddress_from_bytes(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return ByronAddress.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    def byron_protocol_magic(self):
+        ret = wasm.byronaddress_byron_protocol_magic(self.ptr)
+        return ret 
+
+    def attributes(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.byronaddress_attributes(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            v0 = getArrayU8FromWasm0(r0, r1).copy()
+            wasm.__wbindgen_free(r0, r1 * 1)
+            return v0
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    def network_id(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.byronaddress_network_id(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return r0
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def from_base58(s):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = pass_string_to_wasm0(
+                s,
+                wasm.__wbindgen_malloc,
+                wasm.__wbindgen_realloc,
+            )
+            len0 = WASM_VECTOR_LEN
+            wasm.byronaddress_from_base58(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return ByronAddress.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def icarus_from_key(key, protocol_magic):
+        _assertClass(key, Bip32PublicKey)
+        ret = wasm.byronaddress_icarus_from_key(key.ptr, protocol_magic)
+        return ByronAddress.__wrap(ret)
+
+    @staticmethod
+    def is_valid(s):
+        ptr0 = pass_string_to_wasm0(
+            s,
+            wasm.__wbindgen_malloc,
+            wasm.__wbindgen_realloc,
+        )
+        len0 = WASM_VECTOR_LEN
+        ret = wasm.byronaddress_is_valid(ptr0, len0)
+        return ret != 0
+
+    def to_address(self):
+        ret = wasm.byronaddress_to_address(self.ptr)
+        return Address.__wrap(ret)
+
+    @staticmethod
+    def from_address(addr):
+        _assertClass(addr, Address)
+        ret = wasm.address_as_byron(addr.ptr)
+        return ByronAddress.__wrap(ret)
+
+
+
+
+
+
+class ScriptAllFinalization:
+    def __init__(self):
+        self.registry = weakref.WeakValueDictionary()
+
+    def register(self, ptr, cleanup_func):
+        self.registry[ptr] = cleanup_func
+
+    def unregister(self, ptr):
+        if ptr in self.refs:
+            del self.refs[ptr]
+
+    def cleanup(self):
+        for cleanup_func in self.registry.values():
+            cleanup_func()
+
+class ScriptAll:
+    def __init__(self, ptr):
+        self.ptr = ptr
+        ScriptAllFinalization.register(self, self.ptr, self)
+
+    @staticmethod
+    def __wrap(ptr):
+        obj = ScriptAll()
+        obj.ptr = ptr
+        ScriptAllFinalization.register(obj, obj.ptr, obj)
+        return obj
+
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        ScriptAllFinalization.unregister(self)
+        return ptr
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_scriptall_free(ptr)
+
+    def to_bytes(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.scriptall_to_bytes(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            v0 = getArrayU8FromWasm0(r0, r1).copy()
+            wasm.__wbindgen_free(r0, r1 * 1)
+            return v0
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def from_bytes(bytes):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc)
+            len0 = WASM_VECTOR_LEN
+            wasm.scriptall_from_bytes(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return ScriptAll.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+
+    def to_json(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.scriptall_to_json(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            r3 = get_int32_memory0()[retptr // 4 + 3]
+            ptr0 = r0
+            len0 = r1
+            if r3:
+                ptr0 = 0
+                len0 = 0
+                raise take_object(r2)
+            return get_string_from_wasm0(ptr0, len0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+            wasm.__wbindgen_free(ptr0, len0)
+
+    def to_js_value(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.scriptall_to_js_value(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return take_object(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def from_json(json):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = pass_string_to_wasm0(json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc)
+            len0 = WASM_VECTOR_LEN
+            wasm.scriptall_from_json(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return ScriptAll.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    def native_scripts(self):
+        ret = wasm.scriptall_native_scripts(self.ptr)
+        return NativeScript.__wrap(ret)
+
+    @staticmethod
+    def new(native_scripts):
+        assert isinstance(native_scripts, NativeScript)
+        ret = wasm.scriptall_new(native_scripts.ptr)
+        return ScriptAll.__wrap(ret)
+    
+
+# script any
+class ScriptAnyFinalization:
+    def __init__(self):
+        self.registry = weakref.WeakSet()
+
+    def register(self, obj, ptr):
+        self.registry.add((obj, ptr))
+
+    def cleanup(self):
+        for obj, ptr in self.registry:
+            wasm.__wbg_scriptany_free(ptr)
+            obj.ptr = 0
+
+
+class ScriptAny:
+    def __init__(self, ptr):
+        self.ptr = ptr
+        ScriptAnyFinalization.register(self, self.ptr)
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        ScriptAnyFinalization.unregister(self)
+        return ptr
+    
+
+    @staticmethod
+    def __wrap(ptr):
+        obj = ScriptAny()
+        obj.ptr = ptr
+        ScriptAnyFinalization.register(obj, obj.ptr, obj)
+        return obj
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_scriptany_free(ptr)
+
+    def to_bytes(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.scriptany_to_bytes(retptr, self.ptr)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            v0 = getArrayU8FromWasm0(r0, r1)[:r1]
+            wasm.__wbindgen_free(r0, r1 * 1)
+            return v0
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def from_bytes(bytes):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc)
+            len0 = WASM_VECTOR_LEN
+            wasm.scriptany_from_bytes(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            r2 = get_int32_memory0()[int(retptr / 4 + 2)]
+            if r2:
+                raise take_object(r1)
+            return ScriptAny.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    def to_json(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.scriptall_to_json(retptr, self.ptr)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            r2 = get_int32_memory0()[int(retptr / 4 + 2)]
+            r3 = get_int32_memory0()[int(retptr / 4 + 3)]
+            ptr0 = r0
+            len0 = r1
+            if r3:
+                ptr0 = 0
+                len0 = 0
+                raise take_object(r2)
+            return get_string_from_wasm0(ptr0, len0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+            wasm.__wbindgen_free(ptr0, len0)
+
+    def to_js_value(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.scriptall_to_js_value(retptr, self.ptr)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            r2 = get_int32_memory0()[int(retptr / 4 + 2)]
+            if r2:
+                raise take_object(r1)
+            return take_object(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def from_json(json):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = passArray8ToWasm0(
+                json,
+                wasm.__wbindgen_malloc,
+                wasm.__wbindgen_realloc,
+            )
+            len0 = WASM_VECTOR_LEN
+            wasm.scriptany_from_json(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            r2 = get_int32_memory0()[int(retptr / 4 + 2)]
+            if r2:
+                raise take_object(r1)
+            return ScriptAny.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+
+    def native_scripts(self):
+        ret = wasm.scriptall_native_scripts(self.ptr)
+        return NativeScript.__wrap(ret)
+
+
+    @staticmethod
+    def new(native_scripts):
+        _assertClass(native_scripts, NativeScript)
+        ret = wasm.scriptall_new(native_scripts.ptr)
+        return ScriptAny.__wrap(ret)
+
+
+  
 
 
 
@@ -915,11 +2293,1181 @@ class RewardAddresses:
 
 
 
+class ScriptPubkeyFinalization:
+    def __init__(self, cleanup_fn):
+        self.cleanup_fn = cleanup_fn
+        self.refs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr):
+        self.refs[ptr] = obj
+
+    def unregister(self, ptr):
+        if ptr in self.refs:
+            del self.refs[ptr]
+
+    def cleanup(self):
+        for ptr in self.refs.keys():
+            self.cleanup_fn(ptr)
+
+
+class ScriptPubkey:
+    def __init__(self, ptr):
+        self.ptr = ptr
+        ScriptPubkeyFinalization.register(self, self.ptr, self)
+
+    @staticmethod
+    def __wrap(ptr):
+        obj = NativeScript()
+        obj.ptr = ptr
+        ScriptPubkeyFinalization.register(obj, obj.ptr, obj)
+        return obj
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        ScriptPubkeyFinalization.unregister(self)
+        return ptr
+    
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_scriptpubkey_free(ptr)
+
+    def to_bytes(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.scriptpubkey_to_bytes(retptr, self.ptr)
+            r0 = get_int32_memory0()[int(retptr / 4)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            v0 = getArrayU8FromWasm0(r0, r1).copy()
+            wasm.__wbindgen_free(r0, r1 * 1)
+            return v0
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def from_bytes(bytes):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc)
+            len0 = WASM_VECTOR_LEN
+            wasm.scriptpubkey_from_bytes(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[int(retptr / 4)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            r2 = get_int32_memory0()[int(retptr / 4 + 2)]
+            if r2:
+                raise take_object(r1)
+            return ScriptPubkey.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    def to_json(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.scriptpubkey_to_json(retptr, self.ptr)
+            r0 = get_int32_memory0()[int(retptr / 4)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            r2 = get_int32_memory0()[int(retptr / 4 + 2)]
+            r3 = get_int32_memory0()[int(retptr / 4 + 3)]
+            ptr0 = r0
+            len0 = r1
+            if r3:
+                ptr0 = 0
+                len0 = 0
+                raise take_object(r2)
+            return get_string_from_wasm0(ptr0, len0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+            wasm.__wbindgen_free(ptr0, len0)
+
+    def to_js_value(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.scriptpubkey_to_js_value(retptr, self.ptr)
+            r0 = get_int32_memory0()[int(retptr / 4)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            r2 = get_int32_memory0()[int(retptr / 4 + 2)]
+            if r2:
+                raise take_object(r1)
+            return take_object(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def from_json(json):
+        ptr0 = pass_string_to_wasm0(json)
+        len0 = len(json)
+        retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+        wasm.scriptpubkey_from_json(retptr, ptr0, len0)
+        r0 = get_int32_memory0()[retptr // 4 + 0]
+        r1 = get_int32_memory0()[retptr // 4 + 1]
+        r2 = get_int32_memory0()[retptr // 4 + 2]
+        if r2:
+            raise take_object(r1)
+        return ScriptPubkey.__wrap(r0)
+    
+    def addr_keyhash(self):
+        ret = wasm.genesiskeydelegation_genesishash(self.ptr)
+        return Ed25519KeyHash.__wrap(ret)
+
+    @staticmethod
+    def new(addr_keyhash):
+        assert isinstance(addr_keyhash, Ed25519KeyHash)
+        ret = wasm.scriptpubkey_new(addr_keyhash.ptr)
+        return ScriptPubkey.__wrap(ret)
+    
+class ScriptNOfKFinalization:
+    def __init__(self, cleanup_fn):
+        self.cleanup_fn = cleanup_fn
+        self.refs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr):
+        self.refs[ptr] = obj
+
+    def unregister(self, ptr):
+        if ptr in self.refs:
+            del self.refs[ptr]
+
+    def cleanup(self):
+        for ptr in self.refs.keys():
+            self.cleanup_fn(ptr)
+
+
+class ScriptNOfK:
+    def __init__(self, ptr):
+        self.ptr = ptr
+        self.finalization_registry = ScriptNOfKFinalization.register(self, self.ptr, self)
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        ScriptNOfKFinalization.unregister(self)
+        return ptr
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_scriptnofk_free(ptr)
+
+    @staticmethod
+    def __wrap(ptr):
+        obj = ScriptNOfK()
+        obj.ptr = ptr
+        ScriptNOfKFinalization.register(obj, obj.ptr, obj)
+        return obj
+
+    def to_bytes(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.scriptnofk_to_bytes(retptr, self.ptr)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            v0 = getArrayU8FromWasm0(r0, r1).copy()
+            wasm.__wbindgen_free(r0, r1 * 1)
+            return v0
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def from_bytes(bytes):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc)
+            len0 = WASM_VECTOR_LEN
+            wasm.scriptnofk_from_bytes(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            r2 = get_int32_memory0()[int(retptr / 4 + 2)]
+            if r2:
+                raise take_object(r1)
+            return ScriptNOfK.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    def to_json(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.scriptnofk_to_json(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            r3 = get_int32_memory0()[retptr // 4 + 3]
+            ptr0 = r0
+            len0 = r1
+            if r3:
+                ptr0 = 0
+                len0 = 0
+                raise take_object(r2)
+            return get_string_from_wasm0(ptr0, len0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+            wasm.__wbindgen_free(ptr0, len0)
+
+    def to_js_value(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.scriptnofk_to_js_value(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return take_object(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def from_json(json):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = pass_string_to_wasm0(
+                json,
+                wasm.__wbindgen_malloc,
+                wasm.__wbindgen_realloc,
+            )
+            len0 = WASM_VECTOR_LEN
+            wasm.scriptnofk_from_json(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return ScriptNOfK.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    # def n(self):
+    #     ret = wasm.networkinfo_protocol_magic(self.ptr)
+    #     return ret >>> 0
+
+    def native_scripts(self):
+        ret = wasm.scriptnofk_native_scripts(self.ptr)
+        return NativeScript.__wrap(ret)
+
+    @staticmethod
+    def new(n, native_scripts):
+        _assertClass(native_scripts, NativeScript)
+        ret = wasm.scriptnofk_new(n, native_scripts.ptr)
+        return ScriptNOfK.__wrap(ret)
+    
+
+
+class BignumFinalization:
+    def __init__(self, cleanup_fn):
+        self.cleanup_fn = cleanup_fn
+        self.refs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr):
+        self.refs[ptr] = obj
+
+    def unregister(self, ptr):
+        if ptr in self.refs:
+            del self.refs[ptr]
+
+    def cleanup(self):
+        for ptr in self.refs.keys():
+            self.cleanup_fn(ptr)
+
+
+class BigNum:
+    def __init__(self, ptr):
+        self.ptr = ptr
+        BignumFinalization.register(self, self.ptr)
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        BignumFinalization.unregister(self)
+        return ptr
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_bignum_free(ptr)
+
+    def to_bytes(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.bignum_to_bytes(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr / 4 + 0]
+            r1 = get_int32_memory0()[retptr / 4 + 1]
+            v0 = getArrayU8FromWasm0(r0, r1).copy()
+            wasm.__wbindgen_free(r0, r1 * 1)
+            return v0
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def from_bytes(bytes):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc)
+            len0 = WASM_VECTOR_LEN
+            wasm.bignum_from_bytes(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[retptr / 4 + 0]
+            r1 = get_int32_memory0()[retptr / 4 + 1]
+            r2 = get_int32_memory0()[retptr / 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return BigNum(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def from_str(string):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = pass_string_to_wasm0(
+                string,
+                wasm.__wbindgen_malloc,
+                wasm.__wbindgen_realloc,
+            )
+            len0 = WASM_VECTOR_LEN
+            wasm.bignum_from_str(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return BigNum.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+    
+    def to_str(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.bignum_to_str(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            return get_string_from_wasm0(r0, r1)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+            wasm.__wbindgen_free(r0, r1)
+    
+    @staticmethod
+    def zero():
+        ret = wasm.bignum_zero()
+        return BigNum.__wrap(ret)
+    
+    def is_zero(self):
+        ret = wasm.bignum_is_zero(self.ptr)
+        return ret != 0
+    
+    def checked_mul(self, other):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            _assertClass(other, BigNum)
+            wasm.bignum_checked_mul(retptr, self.ptr, other.ptr)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return BigNum.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+    
+    def checked_add(self, other):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            _assertClass(other, BigNum)
+            wasm.bignum_checked_add(retptr, self.ptr, other.ptr)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return BigNum.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    def checked_sub(self, other):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            _assertClass(other, BigNum)
+            wasm.bignum_checked_sub(retptr, self.ptr, other.ptr)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return BigNum.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+    
+    def checked_div(self, other):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            _assertClass(other, BigNum)
+            wasm.bignum_checked_div(retptr, self.ptr, other.ptr)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return BigNum.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+    
+    def checked_div_ceil(self, other):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            _assertClass(other, BigNum)
+            wasm.bignum_checked_div_ceil(retptr, self.ptr, other.ptr)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return BigNum.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+    
+    def clamped_sub(self, other):
+        _assertClass(other, BigNum)
+        ret = wasm.bignum_clamped_sub(self.ptr, other.ptr)
+        return BigNum.__wrap(ret)
+    
+    def compare(self, rhs_value):
+        _assertClass(rhs_value, BigNum)
+        ret = wasm.bignum_compare(self.ptr, rhs_value.ptr)
+        return ret
+    
+
+
+    # time lock end 
+class TimelockExpiryFinalization:
+    def __init__(self, cleanup_fn):
+        self.cleanup_fn = cleanup_fn
+        self.refs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr):
+        self.refs[ptr] = obj
+
+    def unregister(self, ptr):
+        if ptr in self.refs:
+            del self.refs[ptr]
+
+    def cleanup(self):
+        for ptr in self.refs.keys():
+            self.cleanup_fn(ptr)
+
+
+class TimelockExpiry:
+    def __init__(self, ptr):
+        self.ptr = ptr
+        TimelockExpiryFinalization.register(self, self.ptr, self)
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        TimelockExpiryFinalization.unregister(self)
+        return ptr
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_timelockexpiry_free(ptr)
+
+    def to_bytes(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.timelockexpiry_to_bytes(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            v0 = getArrayU8FromWasm0(r0, r1).copy()
+            wasm.__wbindgen_free(r0, r1 * 1)
+            return v0
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def from_bytes(bytes):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc)
+            len0 = WASM_VECTOR_LEN
+            wasm.timelockexpiry_from_bytes(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return TimelockExpiry.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    def to_json(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.timelockexpiry_to_json(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            r3 = get_int32_memory0()[retptr // 4 + 3]
+            ptr0 = r0
+            len0 = r1
+            if r3:
+                ptr0 = 0
+                len0 = 0
+                raise take_object(r2)
+            return get_string_from_wasm0(ptr0, len0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+            wasm.__wbindgen_free(ptr0, len0)
+
+    def to_js_value(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.timelockexpiry_to_js_value(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return take_object(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def from_json(json):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = pass_string_to_wasm0(
+                json,
+                wasm.__wbindgen_malloc,
+                wasm.__wbindgen_realloc,
+            )
+            len0 = WASM_VECTOR_LEN
+            wasm.timelockexpiry_from_json(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return TimelockExpiry.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    def slot(self):
+        ret = wasm.constrplutusdata_alternative(self.ptr)
+        return BigNum.__wrap(ret)
+
+    @staticmethod
+    def new(slot):
+        _assertClass(slot, BigNum)
+        ret = wasm.constrplutusdata_alternative(slot.ptr)
+        return TimelockExpiry.__wrap(ret)
+
+
+    
+
+
+# tacke start time
+
+class TimelockStartFinalization:
+    def __init__(self, cleanup_fn):
+        self.cleanup_fn = cleanup_fn
+        self.refs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr):
+        self.refs[ptr] = obj
+
+    def unregister(self, ptr):
+        if ptr in self.refs:
+            del self.refs[ptr]
+
+    def cleanup(self):
+        for ptr in self.refs.keys():
+            self.cleanup_fn(ptr)
+
+
+class TimelockStart:
+    def __init__(self, ptr):
+        self.ptr = ptr
+        TimelockStartFinalization.register(self, self.ptr)
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        TimelockStartFinalization.unregister(self)
+        return ptr
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_timelockstart_free(ptr)
+
+    def to_bytes(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.timelockstart_to_bytes(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            v0 = getArrayU8FromWasm0(r0, r1).copy()
+            wasm.__wbindgen_free(r0, r1 * 1)
+            return v0
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def from_bytes(bytes):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc)
+            len0 = WASM_VECTOR_LEN
+            wasm.timelockstart_from_bytes(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return TimelockStart.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    def to_json(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.timelockexpiry_to_json(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            r3 = get_int32_memory0()[retptr // 4 + 3]
+            ptr0 = r0
+            len0 = r1
+            if r3:
+                ptr0 = 0
+                len0 = 0
+                raise take_object(r2)
+            return get_string_from_wasm0(ptr0, len0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+            wasm.__wbindgen_free(ptr0, len0)
+
+
+    def to_js_value(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.timelockexpiry_to_js_value(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return take_object(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def from_json(json):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = pass_string_to_wasm0(
+                json,
+                wasm.__wbindgen_malloc,
+                wasm.__wbindgen_realloc,
+            )
+            len0 = WASM_VECTOR_LEN
+            wasm.timelockstart_from_json(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return TimelockStart.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    def slot(self):
+        ret = wasm.constrplutusdata_alternative(self.ptr)
+        return BigNum.__wrap(ret)
+
+    @staticmethod
+    def new(slot):
+        _assertClass(slot, BigNum)
+        ret = wasm.constrplutusdata_alternative(slot.ptr)
+        return TimelockStart.__wrap(ret)
 
 
 
 
 
 
+
+
+
+
+# NativeScriptFinalization
+class NativeScriptFinalization:
+    def __init__(self, cleanup_fn):
+        self.cleanup_fn = cleanup_fn
+        self.refs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr):
+        self.refs[ptr] = obj
+
+    def unregister(self, ptr):
+        if ptr in self.refs:
+            del self.refs[ptr]
+
+    def cleanup(self):
+        for ptr in self.refs.keys():
+            self.cleanup_fn(ptr)
+
+
+class NativeScript:
+    @staticmethod
+    def __wrap(ptr):
+        obj = NativeScript()
+        obj.ptr = ptr
+        NativeScriptFinalization.register(obj, obj.ptr, obj)
+        return obj
+    
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        NativeScriptFinalization.unregister(self)
+        return ptr
+    
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_nativescript_free(ptr)
+
+    def to_bytes(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.nativescript_to_bytes(retptr, self.ptr)
+            r0 = get_int32_memory0()[int(retptr / 4) + 0]
+            r1 = get_int32_memory0()[int(retptr / 4) + 1]
+            v0 = getArrayU8FromWasm0(r0, r1).copy()
+            wasm.__wbindgen_free(r0, r1 * 1)
+            return v0
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+
+    @staticmethod
+    def from_bytes(bytes):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc)
+            len0 = WASM_VECTOR_LEN
+            wasm.nativescript_from_bytes(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[int(retptr / 4) + 0]
+            r1 = get_int32_memory0()[int(retptr / 4) + 1]
+            r2 = get_int32_memory0()[int(retptr / 4) + 2]
+            if r2:
+                raise take_object(r1)
+            return NativeScript(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    def to_json(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.nativescript_to_json(retptr, self.ptr)
+            r0 = get_int32_memory0()[int(retptr / 4) + 0]
+            r1 = get_int32_memory0()[int(retptr / 4) + 1]
+            r2 = get_int32_memory0()[int(retptr / 4) + 2]
+            r3 = get_int32_memory0()[int(retptr / 4) + 3]
+            ptr0 = r0
+            len0 = r1
+            if r3:
+                ptr0 = 0
+                len0 = 0
+                raise take_object(r2)
+            return get_string_from_wasm0(ptr0, len0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+            wasm.__wbindgen_free(ptr0, len0)
+
+    def to_js_value(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.nativescript_to_js_value(retptr, self.ptr)
+            r0 = get_int32_memory0()[int(retptr / 4) + 0]
+            r1 = get_int32_memory0()[int(retptr / 4) + 1]
+            r2 = get_int32_memory0()[int(retptr / 4) + 2]
+            if r2:
+                raise take_object(r1)
+            return take_object(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def from_json(json):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = pass_string_to_wasm0(
+                json,
+                wasm.__wbindgen_malloc,
+                wasm.__wbindgen_realloc,
+            )
+            len0 = WASM_VECTOR_LEN
+            wasm.nativescript_from_json(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[int(retptr / 4) + 0]
+            r1 = get_int32_memory0()[int(retptr / 4) + 1]
+            r2 = get_int32_memory0()[int(retptr / 4) + 2]
+            if r2:
+                raise take_object(r1)
+            return NativeScript.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    def hash(self, namespace):
+        ret = wasm.nativescript_hash(self.ptr, namespace)
+        return ScriptHash.__wrap(ret)
+
+    @staticmethod
+    def new_script_pubkey(script_pubkey):
+        _assertClass(script_pubkey, ScriptPubkey)
+        ret = wasm.nativescript_new_script_pubkey(script_pubkey.ptr)
+        return NativeScript.__wrap(ret)
+
+    @staticmethod
+    def new_script_all(script_all):
+        _assertClass(script_all, ScriptAll)
+        ret = wasm.nativescript_new_script_all(script_all.ptr)
+        return NativeScript.__wrap(ret)
+
+    @staticmethod
+    def new_script_any(script_any):
+        _assertClass(script_any, ScriptAny)
+        ret = wasm.nativescript_new_script_any(script_any.ptr)
+        return NativeScript.__wrap(ret)
+
+    @staticmethod
+    def new_script_n_of_k(script_n_of_k):
+        _assertClass(script_n_of_k, ScriptNOfK)
+        ret = wasm.nativescript_new_script_n_of_k(script_n_of_k.ptr)
+        return NativeScript.__wrap(ret)
+
+    @staticmethod
+    def new_timelock_start(timelock_start):
+        _assertClass(timelock_start, TimelockStart)
+        ret = wasm.nativescript_new_timelock_start(timelock_start.ptr)
+        return NativeScript.__wrap(ret)
+
+    @staticmethod
+    def new_timelock_expiry(timelock_expiry):
+        _assertClass(timelock_expiry, TimelockExpiry)
+        ret = wasm.nativescript_new_timelock_expiry(timelock_expiry.ptr)
+        return NativeScript.__wrap(ret)
+
+    def kind(self):
+        ret = wasm.nativescript_kind(self.ptr)
+        return ret
+
+    def as_script_pubkey(self):
+        ret = wasm.nativescript_as_script_pubkey(self.ptr)
+        return None if ret == 0 else ScriptPubkey.__wrap(ret)
+
+    def as_script_all(self):
+        ret = wasm.nativescript_as_script_all(self.ptr)
+        return None if ret == 0 else ScriptAll.__wrap(ret)
+
+    def as_script_any(self):
+        ret = wasm.nativescript_as_script_any(self.ptr)
+        return None if ret == 0 else ScriptAny.__wrap(ret)
+
+    def as_script_n_of_k(self):
+        ret = wasm.nativescript_as_script_n_of_k(self.ptr)
+        return None if ret == 0 else ScriptNOfK.__wrap(ret)
+
+    def as_timelock_start(self):
+        ret = wasm.nativescript_as_timelock_start(self.ptr)
+        return None if ret == 0 else TimelockStart.__wrap(ret)
+
+
+
+ScriptHashNamespace = {
+    "NativeScript": 0,
+    0: "NativeScript",
+    "PlutusV1": 1,
+    1: "PlutusV1",
+    "PlutusV2": 2,
+    2: "PlutusV2"
+}
+ScriptHashNamespace = dict(ScriptHashNamespace)  # Optional: Convert to regular dictionary and freeze
+
+
+# plutus script 
+
+class PlutusScriptFinalization:
+    def __init__(self, cleanup_fn):
+        self.cleanup_fn = cleanup_fn
+        self.refs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr):
+        self.refs[ptr] = obj
+
+    def unregister(self, ptr):
+        if ptr in self.refs:
+            del self.refs[ptr]
+
+    def cleanup(self):
+        for ptr in self.refs.keys():
+            self.cleanup_fn(ptr)
+
+
+class PlutusScript:
+    @staticmethod
+    def __wrap(ptr):
+        obj = PlutusScript()
+        obj.ptr = ptr
+        PlutusScriptFinalization.register(obj, obj.ptr, obj)
+        return obj
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        PlutusScriptFinalization.unregister(self)
+        return ptr
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_plutusscript_free(ptr)
+
+    def to_bytes(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.plutusscript_to_bytes(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            v0 = getArrayU8FromWasm0(r0, r1).copy()
+            wasm.__wbindgen_free(r0, r1 * 1)
+            return v0
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def from_bytes(bytes):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc)
+            len0 = WASM_VECTOR_LEN
+            wasm.plutusscript_from_bytes(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return PlutusScript.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    def hash(self, namespace):
+        ret = wasm.plutusscript_hash(self.ptr, namespace)
+        return ScriptHash.__wrap(ret)
+
+    @staticmethod
+    def new(bytes):
+        ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc)
+        len0 = WASM_VECTOR_LEN
+        ret = wasm.plutusscript_new(ptr0, len0)
+        return PlutusScript.__wrap(ret)
+
+    def bytes(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.assetname_name(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            v0 = getArrayU8FromWasm0(r0, r1).copy()
+            wasm.__wbindgen_free(r0, r1 * 1)
+            return v0
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+
+
+class PlutusScriptsFinalization:
+    def __init__(self, cleanup_fn):
+        self.cleanup_fn = cleanup_fn
+        self.refs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr):
+        self.refs[ptr] = obj
+
+    def unregister(self, ptr):
+        if ptr in self.refs:
+            del self.refs[ptr]
+
+    def cleanup(self):
+        for ptr in self.refs.keys():
+            self.cleanup_fn(ptr)
+
+class PlutusScripts:
+    def __init__(self, ptr):
+        self.ptr = ptr
+        PlutusScriptsFinalization.register(self, self.ptr, self)
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        PlutusScriptsFinalization.unregister(self)
+        return ptr
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_plutusscripts_free(ptr)
+
+    def to_bytes(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.plutusscripts_to_bytes(retptr, self.ptr)
+            r0 = get_int32_memory0()[retptr / 4 + 0]
+            r1 = get_int32_memory0()[retptr / 4 + 1]
+            v0 = getArrayU8FromWasm0(r0, r1).copy()
+            wasm.__wbindgen_free(r0, r1 * 1)
+            return v0
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def from_bytes(bytes):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc)
+            len0 = WASM_VECTOR_LEN
+            wasm.plutusscripts_from_bytes(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[retptr / 4 + 0]
+            r1 = get_int32_memory0()[retptr / 4 + 1]
+            r2 = get_int32_memory0()[retptr / 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return PlutusScripts.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    @staticmethod
+    def new():
+        ret = wasm.assetnames_new()
+        return PlutusScripts.__wrap(ret)
+
+    def len(self):
+        ret = wasm.assetnames_len(self.ptr)
+        return ret 
+
+    def get(self, index):
+        ret = wasm.plutusscripts_get(self.ptr, index)
+        return PlutusScript.__wrap(ret)
+
+    def add(self, elem):
+        _assertClass(elem, PlutusScript)
+        wasm.assetnames_add(self.ptr, elem.ptr)
+
+
+
+
+
+class PointerFinalization:
+    def __init__(self, cleanup_fn):
+        self.cleanup_fn = cleanup_fn
+        self.refs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr):
+        self.refs[ptr] = obj
+
+    def unregister(self, ptr):
+        if ptr in self.refs:
+            del self.refs[ptr]
+
+    def cleanup(self):
+        for ptr in self.refs.keys():
+            self.cleanup_fn(ptr)
+
+class Pointer:
+    def __init__(self, ptr):
+        self.ptr = ptr
+        PointerFinalization.register(self, self.ptr, self)
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        PointerFinalization.unregister(self)
+        return ptr
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_pointer_free(ptr)
+
+    @staticmethod
+    def new(slot, tx_index, cert_index):
+        _assertClass(slot, BigNum)
+        _assertClass(tx_index, BigNum)
+        _assertClass(cert_index, BigNum)
+        ret = wasm.pointer_new(slot.ptr, tx_index.ptr, cert_index.ptr)
+        return Pointer.__wrap(ret)
+
+    def slot(self):
+        ret = wasm.constrplutusdata_alternative(self.ptr)
+        return BigNum.__wrap(ret)
+
+    def tx_index(self):
+        ret = wasm.exunits_steps(self.ptr)
+        return BigNum.__wrap(ret)
+
+    def cert_index(self):
+        ret = wasm.pointer_cert_index(self.ptr)
+        return BigNum.__wrap(ret)
+
+
+
+
+# Pointer Address
+
+class PointerAddressFinalization:
+    def __init__(self, cleanup_fn):
+        self.cleanup_fn = cleanup_fn
+        self.refs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr):
+        self.refs[ptr] = obj
+
+    def unregister(self, ptr):
+        if ptr in self.refs:
+            del self.refs[ptr]
+
+    def cleanup(self):
+        for ptr in self.refs.keys():
+            self.cleanup_fn(ptr)
+
+
+class PointerAddress:
+    def __init__(self, ptr):
+        self.ptr = ptr
+        PointerAddressFinalization.register(self, self.ptr, self)
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        PointerAddressFinalization.unregister(self)
+        return ptr
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_pointeraddress_free(ptr)
+
+    @staticmethod
+    def new(network, payment, stake):
+        _assertClass(payment, StakeCredential)
+        _assertClass(stake, Pointer)
+        ret = wasm.pointeraddress_new(network, payment.ptr, stake.ptr)
+        return PointerAddress.__wrap(ret)
+
+    def payment_cred(self):
+        ret = wasm.pointeraddress_payment_cred(self.ptr)
+        return StakeCredential.__wrap(ret)
+
+    def stake_pointer(self):
+        ret = wasm.pointeraddress_stake_pointer(self.ptr)
+        return Pointer.__wrap(ret)
+
+    def to_address(self):
+        ret = wasm.pointeraddress_to_address(self.ptr)
+        return Address.__wrap(ret)
+
+    @staticmethod
+    def from_address(addr):
+        _assertClass(addr, Address)
+        ret = wasm.address_as_pointer(addr.ptr)
+        return None if ret == 0 else PointerAddress.__wrap(ret)
 
 
