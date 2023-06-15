@@ -21,6 +21,14 @@ decoded_data = cached_text_decoder.decode()
 cached_unit_memory0 = None
 
 
+def passArray32ToWasm0(arg, malloc):
+    array_type = ctypes.c_uint32 * len(arg)
+    array = array_type(*arg)
+    ptr = malloc(len(arg) * 4)
+    ctypes.memmove(ptr, ctypes.addressof(array), len(arg) * 4)
+    WASM_VECTOR_LEN = len(arg)
+    return ptr
+
 
 def get_unit8_memory0():
     global cached_unit_memory0
@@ -1460,6 +1468,73 @@ class Costmdls:
 
 
 
+# Transaction builder 
+
+
+class TransactionBuilderFinalization:
+    def __init__(self, callback):
+        self.callback = callback
+        self.weakrefs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr, key):
+        self.weakrefs[key] = (obj, ptr)
+
+    def unregister(self, key):
+        del self.weakrefs[key]
+
+    def cleanup(self):
+        for obj, ptr in self.weakrefs.values():
+            self.callback(ptr)
+
+
+class TransactionBuilder:
+    def __init__(self, lucid):
+        self.ptr = wasm.TransactionBuilder_new(lucid.txBuilderConfig)
+        TransactionBuilderFinalization.register(self, self.ptr, self)
+    
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        TransactionBuilderFinalization.unregister(self)
+        return ptr
+    
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_transactionbuilder_free(ptr)
+    
+    def add_inputs_from(self, inputs, change_address, weights):
+        _assertClass(inputs, TransactionUnspentOutputs)
+        _assertClass(change_address, Address)
+        ptr0, len0 = passArray32ToWasm0(weights, wasm.__wbindgen_malloc)
+        retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+        wasm.transactionbuilder_add_inputs_from(
+            retptr,
+            self.ptr,
+            inputs.ptr,
+            change_address.ptr,
+            ptr0,
+            len0,
+        )
+        r0 = get_int32_memory0()[retptr // 4 + 0]
+        r1 = get_int32_memory0()[retptr // 4 + 1]
+        if r1:
+            raise take_object(r0)
+    
+    def add_input(self, utxo, script_witness):
+        _assertClass(utxo, TransactionUnspentOutput)
+        ptr0 = 0
+        if not isLikeNone(script_witness):
+            _assertClass(script_witness, ScriptWitness)
+            ptr0 = script_witness.__destroy_into_raw()
+        wasm.transactionbuilder_add_input(self.ptr, utxo.ptr, ptr0)
+    
+    def add_reference_input(self, utxo):
+        _assertClass(utxo, TransactionUnspentOutput)
+        wasm.transactionbuilder_add_reference_input(self.ptr, utxo.ptr)
+
+
+
+        # add all of function and complete
 
 # TransactionBuilderConfigFinalization
 
