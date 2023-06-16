@@ -287,3 +287,63 @@ def getAddressDetails(address: str) -> Optional[Address_details]:
     raise Error("No address type matched for: " + address)
 
 
+
+def assets_to_value(assets):
+    multi_asset = C.MultiAsset.new()
+    lovelace = assets.get("lovelace")
+    units = list(assets.keys())
+    policies = list(set([unit[:56] for unit in units if unit != "lovelace"]))
+    
+    for policy in policies:
+        policy_units = [unit for unit in units if unit[:56] == policy]
+        assets_value = C.Assets.new()
+        
+        for unit in policy_units:
+            assets_value.insert(
+                C.AssetName.new(fromHex(unit[56:])),
+                C.BigNum.from_str(str(assets[unit])),
+            )
+        
+        multi_asset.insert(C.ScriptHash.from_bytes(fromHex(policy)), assets_value)
+    
+    value = C.Value.new(C.BigNum.from_str(str(lovelace) if lovelace else "0"))
+    
+    if len(units) > 1 or not lovelace:
+        value.set_multiasset(multi_asset)
+    
+    return value
+
+
+
+
+
+def utxoToCore(utxo):
+    address = None
+
+    try:
+        address = C.Address.from_bech32(utxo['address'])
+    except:
+        address = C.ByronAddress.from_base58(utxo['address']).to_address()
+
+    output = C.TransactionOutput.new(address, assetsToValue(utxo['assets']))
+
+    if utxo['datumHash']:
+        output.set_datum(
+            C.Datum.new_data_hash(C.DataHash.from_bytes(fromHex(utxo['datumHash'])))
+        )
+    elif utxo['datum']:
+        output.set_datum(
+            C.Datum.new_data(C.Data.new(C.PlutusData.from_bytes(fromHex(utxo['datum']))))
+        )
+
+    if utxo['scriptRef']:
+        output.set_script_ref(toScriptRef(utxo['scriptRef']))
+
+    txInput = C.TransactionInput.new(
+        C.TransactionHash.from_bytes(fromHex(utxo['txHash'])),
+        C.BigNum.from_str(str(utxo['outputIndex'])),
+    )
+
+    return C.TransactionUnspentOutput.new(txInput, output)
+
+
