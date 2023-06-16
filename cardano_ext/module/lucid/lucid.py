@@ -4,13 +4,15 @@ from provider.emulator import Emulator
 from plutus.time import SLOT_CONFIG_NETWORK
 from utlis.cost_model import create_cost_models
 from utlis.utils import Utils
+from type.type import UTxO ,Provider
+from plutus.data import Data,from_raw
 
 
 class Lucid:
     def __init__(self):
         self.txBuilderConfig: Optional[C.TransactionBuilderConfig] = None
         self.wallet = None
-        self.provider = None
+        self.provider = Provider
         self.network: str = "Mainnet"
         self.utils = None
 
@@ -81,3 +83,12 @@ class Lucid:
         return Tx(self)
     
     # add tx functions
+
+
+
+    async def datumOf(self, utxo:UTxO, type=None):
+        if not utxo.datum:
+            if not utxo.datumHash:
+                raise ValueError("This UTxO does not have a datum hash.")
+            utxo.datum = await self.provider.getDatum(utxo.datumHash)
+        return Data.from_raw(utxo.datum, type)
