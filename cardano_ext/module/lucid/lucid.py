@@ -5,7 +5,8 @@ from plutus.time import SLOT_CONFIG_NETWORK
 from utlis.cost_model import create_cost_models
 from utlis.utils import Utils
 from type.type import UTxO ,Provider
-from plutus.data import Data,from_raw
+from plutus.data import Data
+from tx import Tx
 
 
 class Lucid:
