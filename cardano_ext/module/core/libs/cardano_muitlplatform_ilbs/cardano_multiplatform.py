@@ -2028,6 +2028,150 @@ class MultiAsset:
     def new():
         ret = wasm.assets_new()
         return MultiAsset.__wrap(ret)
+    
+
+
+    # Data hash
+class DataHashFinalization:
+    def __init__(self, callback):
+        self.callback = callback
+        self.weakrefs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr, key):
+        self.weakrefs[key] = (obj, ptr)
+
+    def unregister(self, key):
+        del self.weakrefs[key]
+
+    def cleanup(self):
+        for obj, ptr in self.weakrefs.values():
+            self.callback(ptr)
+
+class DataHash:
+    def __init__(self, ptr):
+        self.ptr = ptr
+
+    @staticmethod
+    def __wrap(ptr):
+        obj = DataHash(ptr)
+        DataHashFinalization.register(obj, obj.ptr, obj)
+        return obj
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        DataHashFinalization.unregister(self)
+        return ptr
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_datahash_free(ptr)
+
+    @staticmethod
+    def from_bytes(bytes):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc)
+            len0 = WASM_VECTOR_LEN
+            wasm.datahash_from_bytes(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            r2 = get_int32_memory0()[int(retptr / 4 + 2)]
+            if r2:
+                raise take_object(r1)
+            return DataHash.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    def to_bytes(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.auxiliarydatahash_to_bytes(retptr, self.ptr)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            v0 = getArrayU8FromWasm0(r0, r1).copy()
+            wasm.__wbindgen_free(r0, r1 * 1)
+            return v0
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    def to_bech32(self, prefix):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = pass_string_to_wasm0(
+                prefix,
+                wasm.__wbindgen_malloc,
+                wasm.__wbindgen_realloc,
+            )
+            len0 = WASM_VECTOR_LEN
+            wasm.auxiliarydatahash_to_bech32(retptr, self.ptr, ptr0, len0)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            r2 = get_int32_memory0()[int(retptr / 4 + 2)]
+            r3 = get_int32_memory0()[int(retptr / 4 + 3)]
+            ptr1 = r0
+            len1 = r1
+            if r3:
+                ptr1 = 0
+                len1 = 0
+                raise take_object(r2)
+            return get_string_from_wasm0(ptr1, len1)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+            wasm.__wbindgen_free(ptr1, len1)
+
+    @staticmethod
+    def from_bech32(bech_str):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = pass_string_to_wasm0(
+                bech_str,
+                wasm.__wbindgen_malloc,
+                wasm.__wbindgen_realloc,
+            )
+            len0 = WASM_VECTOR_LEN
+            wasm.datahash_from_bech32(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            r2 = get_int32_memory0()[int(retptr / 4 + 2)]
+            if r2:
+                raise take_object(r1)
+            return DataHash.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    def to_hex(self):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.auxiliarydatahash_to_hex(retptr, self.ptr)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            return get_string_from_wasm0(r0, r1)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+            wasm.__wbindgen_free(r0, r1)
+
+    @staticmethod
+    def from_hex(hex):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = pass_string_to_wasm0(
+                hex,
+                wasm.__wbindgen_malloc,
+                wasm.__wbindgen_realloc,
+            )
+            len0 = WASM_VECTOR_LEN
+            wasm.datahash_from_hex(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[int(retptr / 4 + 0)]
+            r1 = get_int32_memory0()[int(retptr / 4 + 1)]
+            r2 = get_int32_memory0()[int(retptr / 4 + 2)]
+            if r2:
+                raise take_object(r1)
+            return DataHash.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+
 
 
 # Datum 
@@ -2064,6 +2208,12 @@ class Datum:
     def free(self):
         ptr = self.__destroy_into_raw()
         wasm.__wbg_datum_free(ptr)
+
+    @staticmethod
+    def new_data_hash(data_hash):
+        _assertClass(data_hash, DataHash)
+        ret = wasm.datum_new_data_hash(data_hash.ptr)
+        return Datum.__wrap(ret)
 
 
 
