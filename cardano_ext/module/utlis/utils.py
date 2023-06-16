@@ -313,6 +313,25 @@ def assets_to_value(assets):
     
     return value
 
+def to_script_ref(script):
+    if script["type"] == "Native":
+        return C.ScriptRef.new(
+            C.Script.new_native(C.NativeScript.from_bytes(fromHex(script["script"])))
+        )
+    elif script["type"] == "PlutusV1":
+        return C.ScriptRef.new(
+            C.Script.new_plutus_v1(
+                C.PlutusScript.from_bytes(fromHex(apply_double_cbor_encoding(script["script"])))
+            )
+        )
+    elif script["type"] == "PlutusV2":
+        return C.ScriptRef.new(
+            C.Script.new_plutus_v2(
+                C.PlutusScript.from_bytes(fromHex(apply_double_cbor_encoding(script["script"])))
+            )
+        )
+    else:
+        raise Exception("No variant matched.")
 
 
 
@@ -325,7 +344,7 @@ def utxoToCore(utxo):
     except:
         address = C.ByronAddress.from_base58(utxo['address']).to_address()
 
-    output = C.TransactionOutput.new(address, assetsToValue(utxo['assets']))
+    output = C.TransactionOutput.new(address, assets_to_value(utxo['assets']))
 
     if utxo['datumHash']:
         output.set_datum(
@@ -337,7 +356,7 @@ def utxoToCore(utxo):
         )
 
     if utxo['scriptRef']:
-        output.set_script_ref(toScriptRef(utxo['scriptRef']))
+        output.set_script_ref(to_script_ref(utxo['scriptRef']))
 
     txInput = C.TransactionInput.new(
         C.TransactionHash.from_bytes(fromHex(utxo['txHash'])),

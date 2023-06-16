@@ -1832,6 +1832,153 @@ class Value:
         _assertClass(rhs_value, Value)
         ret = wasm.value_compare(self.ptr, rhs_value.ptr)
         return None if ret == 0xFFFFFF else ret
+    
+# TransactionUnspent
+class TransactionUnspentOutputFinalization:
+    def __init__(self, callback):
+        self.callback = callback
+        self.weakrefs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr, key):
+        self.weakrefs[key] = (obj, ptr)
+
+    def unregister(self, key):
+        del self.weakrefs[key]
+
+    def cleanup(self):
+        for obj, ptr in self.weakrefs.values():
+            self.callback(ptr)
+
+class TransactionUnspentOutput:
+    def __init__(self, ptr):
+        self.ptr = ptr
+        TransactionUnspentOutputFinalization.register(self, self.ptr, self)
+
+    @staticmethod
+    def __wrap(ptr):
+        obj = TransactionUnspentOutput(ptr)
+        return obj
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        TransactionUnspentOutputFinalization.unregister(self)
+        return ptr
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_transactionunspentoutput_free(ptr)
+
+    @staticmethod
+    def new(input, output):
+        _assertClass(input, TransactionInput)
+        _assertClass(output, TransactionOutput)
+        ret = wasm.transactionunspentoutput_new(input.ptr, output.ptr)
+        return TransactionUnspentOutput.__wrap(ret)
+
+    
+# Transaction hash
+
+class TransactionHashFinalization:
+    def __init__(self, callback):
+        self.callback = callback
+        self.weakrefs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr, key):
+        self.weakrefs[key] = (obj, ptr)
+
+    def unregister(self, key):
+        del self.weakrefs[key]
+
+    def cleanup(self):
+        for obj, ptr in self.weakrefs.values():
+            self.callback(ptr)
+
+
+class TransactionHash:
+    def __init__(self, ptr):
+        self.ptr = ptr
+        TransactionHashFinalization.register(self, self.ptr, self)
+
+    @staticmethod
+    def __wrap(ptr):
+        obj = TransactionHash(ptr)
+        return obj
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        TransactionHashFinalization.unregister(self)
+        return ptr
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_transactionhash_free(ptr)
+
+    @staticmethod
+    def from_bytes(bytes):
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc)
+            len0 = WASM_VECTOR_LEN
+            wasm.transactionhash_from_bytes(retptr, ptr0, len0)
+            r0 = get_int32_memory0()[retptr // 4 + 0]
+            r1 = get_int32_memory0()[retptr // 4 + 1]
+            r2 = get_int32_memory0()[retptr // 4 + 2]
+            if r2:
+                raise take_object(r1)
+            return TransactionHash.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+
+# TransactionInput
+class TransactionInputFinalization:
+    def __init__(self, callback):
+        self.callback = callback
+        self.weakrefs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr, key):
+        self.weakrefs[key] = (obj, ptr)
+
+    def unregister(self, key):
+        del self.weakrefs[key]
+
+    def cleanup(self):
+        for obj, ptr in self.weakrefs.values():
+            self.callback(ptr)
+
+
+class TransactionInput:
+    def __init__(self, ptr):
+        self.ptr = ptr
+        TransactionInputFinalization.register(self, self.ptr, self)
+
+    @staticmethod
+    def __wrap(ptr):
+        obj = TransactionInput(ptr)
+        return obj
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        TransactionInputFinalization.unregister(self)
+        return ptr
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_transactioninput_free(ptr)
+
+
+    @staticmethod
+    def new(transaction_id, index):
+        _assertClass(transaction_id, TransactionHash)
+        _assertClass(index, BigNum)
+        ret = wasm.transactioninput_new(transaction_id.ptr, index.ptr)
+        return TransactionInput.__wrap(ret)
+
+
+
 
 
 
@@ -1869,6 +2016,12 @@ class ScriptRef:
     def free(self):
         ptr = self.__destroy_into_raw()
         wasm.__wbg_scriptref_free(ptr)
+    
+    @staticmethod
+    def new(script):
+        _assertClass(script, Script)
+        ret = wasm.scriptref_new(script.ptr)
+        return ScriptRef.__wrap(ret)
 
 # AssetName
 class AssetNameFinalization:
@@ -2213,6 +2366,12 @@ class Datum:
     def new_data_hash(data_hash):
         _assertClass(data_hash, DataHash)
         ret = wasm.datum_new_data_hash(data_hash.ptr)
+        return Datum.__wrap(ret)
+    
+    @staticmethod
+    def new_data(data):
+        _assertClass(data, Data)
+        ret = wasm.datum_new_data(data.ptr)
         return Datum.__wrap(ret)
 
 
@@ -2586,6 +2745,47 @@ class PlutusData:
             wasm.__wbindgen_add_to_stack_pointer(16)
 
 
+# Data
+class DataFinalization:
+    def __init__(self, callback):
+        self.callback = callback
+        self.weakrefs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr, key):
+        self.weakrefs[key] = (obj, ptr)
+
+    def unregister(self, key):
+        del self.weakrefs[key]
+
+    def cleanup(self):
+        for obj, ptr in self.weakrefs.values():
+            self.callback(ptr)
+
+class Data:
+    def __init__(self, ptr):
+        self.ptr = ptr
+
+    @staticmethod
+    def __wrap(ptr):
+        obj = Data(ptr)
+        DataFinalization.register(obj, obj.ptr, obj)
+        return obj
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        DataFinalization.unregister(self)
+        return ptr
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_data_free(ptr)
+
+    @staticmethod
+    def new(plutus_data):
+        _assertClass(plutus_data, PlutusData)
+        ret = wasm.data_new(plutus_data.ptr)
+        return Data.__wrap(ret)
 
 
 # Transaction builder 
@@ -4393,6 +4593,63 @@ ScriptHashNamespace = {
 }
 ScriptHashNamespace = dict(ScriptHashNamespace)  # Optional: Convert to regular dictionary and freeze
 
+
+
+# Script 
+class ScriptFinalization:
+    def __init__(self, cleanup_fn):
+        self.cleanup_fn = cleanup_fn
+        self.refs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr):
+        self.refs[ptr] = obj
+
+    def unregister(self, ptr):
+        if ptr in self.refs:
+            del self.refs[ptr]
+
+    def cleanup(self):
+        for ptr in self.refs.keys():
+            self.cleanup_fn(ptr)
+
+class Script:
+    def __init__(self, ptr):
+        self.ptr = ptr
+        ScriptFinalization.register(self, self.ptr, self)
+
+    @staticmethod
+    def __wrap(ptr):
+        obj = Script(ptr)
+        return obj
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        ScriptFinalization.unregister(self)
+        return ptr
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_script_free(ptr)
+
+
+    @staticmethod
+    def new_plutus_v1(plutus_script):
+        _assertClass(plutus_script, PlutusScript)
+        ret = wasm.script_new_plutus_v1(plutus_script.ptr)
+        return Script.__wrap(ret)
+
+    @staticmethod
+    def new_plutus_v2(plutus_script):
+        _assertClass(plutus_script, PlutusScript)
+        ret = wasm.script_new_plutus_v2(plutus_script.ptr)
+        return Script.__wrap(ret)
+    
+    @staticmethod
+    def new_native(native_script):
+        _assertClass(native_script, NativeScript)
+        ret = wasm.script_new_native(native_script.ptr)
+        return Script.__wrap(ret)
 
 # plutus script 
 
