@@ -366,3 +366,10 @@ def utxoToCore(utxo):
     return C.TransactionUnspentOutput.new(txInput, output)
 
 
+
+def generate_private_key():
+      return C.PrivateKey.generate_ed25519().to_bech32()
+
+
+
+

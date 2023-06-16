@@ -1833,6 +1833,56 @@ class Value:
         ret = wasm.value_compare(self.ptr, rhs_value.ptr)
         return None if ret == 0xFFFFFF else ret
     
+
+# TransactionUnspent
+class PrivateKeyFinalization:
+    def __init__(self, callback):
+        self.callback = callback
+        self.weakrefs = weakref.WeakValueDictionary()
+
+    def register(self, obj, ptr, key):
+        self.weakrefs[key] = (obj, ptr)
+
+    def unregister(self, key):
+        del self.weakrefs[key]
+
+    def cleanup(self):
+        for obj, ptr in self.weakrefs.values():
+            self.callback(ptr)
+
+class PrivateKey:
+    @staticmethod
+    def __wrap(ptr):
+        obj = PrivateKey()
+        obj.ptr = ptr
+        PrivateKeyFinalization.register(obj, obj.ptr, obj)
+        return obj
+
+    def __destroy_into_raw(self):
+        ptr = self.ptr
+        self.ptr = 0
+        PrivateKeyFinalization.unregister(self)
+        return ptr
+
+    def free(self):
+        ptr = self.__destroy_into_raw()
+        wasm.__wbg_privatekey_free(ptr)
+
+    @staticmethod
+    def generate_ed25519():
+        try:
+            retptr = wasm.__wbindgen_add_to_stack_pointer(-16)
+            wasm.privatekey_generate_ed25519(retptr)
+            r0 = get_int32_memory0()[int(retptr / 4) + 0]
+            r1 = get_int32_memory0()[int(retptr / 4) + 1]
+            r2 = get_int32_memory0()[int(retptr / 4) + 2]
+            if r2:
+                raise take_object(r1)
+            return PrivateKey.__wrap(r0)
+        finally:
+            wasm.__wbindgen_add_to_stack_pointer(16)
+
+    
 # TransactionUnspent
 class TransactionUnspentOutputFinalization:
     def __init__(self, callback):
